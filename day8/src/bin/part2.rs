@@ -1,7 +1,9 @@
-use std::{collections::HashMap, borrow::BorrowMut};
-use rayon::iter::ParallelIterator;
+use num::Integer;
+use std::{borrow::BorrowMut, collections::HashMap};
 
 use rayon::iter::ParallelBridge;
+use rayon::iter::ParallelIterator;
+
 use regex::Regex;
 
 const PIN: &str = include_str!("../../input.txt");
@@ -22,10 +24,9 @@ impl Direction {
 }
 
 fn main() {
-    let mut result = 0;
-
     let dre = Regex::new("(L|R)+").unwrap();
-    let lre = Regex::new(r"(?<label>(\w|\d){3}) = \((?<left>(\w|\d){3}), (?<right>(\w|\d){3})\)").unwrap();
+    let lre = Regex::new(r"(?<label>(\w|\d){3}) = \((?<left>(\w|\d){3}), (?<right>(\w|\d){3})\)")
+        .unwrap();
 
     let dirs: Vec<Direction> = dre.captures(PIN).unwrap()[0]
         .chars()
@@ -41,22 +42,37 @@ fn main() {
         })
         .collect();
 
-    let mut curl: Vec<String> = labels.keys().filter(|l| l.ends_with('A')).map(|l| l.to_string()).collect();
+    let result: i64 = labels
+        .keys()
+        .filter(|l| l.ends_with('A'))
+        .map(|l| l.to_string())
+        .map(|l| first_z(&l, &labels, &dirs))
+        .reduce(|a, x| a.lcm(&x))
+        .unwrap();
 
-    'out: loop {
+    println!("{result}");
+}
+
+fn first_z(
+    start: &String,
+    labels: &HashMap<String, (String, String)>,
+    dirs: &Vec<Direction>,
+) -> i64 {
+    let mut res = 0;
+    let mut curl = start;
+
+    loop {
         for d in dirs.iter() {
-            result += 1;
+            res += 1;
 
             match d {
-                Direction::L => curl.iter_mut().par_bridge().for_each(|l| *l = labels[l].0.clone()),
-                Direction::R => curl.iter_mut().par_bridge().for_each(|l| *l = labels[l].1.clone()),
-            };
+                Direction::L => curl = &labels[curl].0,
+                Direction::R => curl = &labels[curl].1,
+            }
 
-            if curl.iter().filter(|l| l.ends_with('Z')).count() == curl.len() {
-                break 'out;
+            if curl.ends_with('Z') {
+                return res;
             }
         }
     }
-
-    println!("{result}");
 }
